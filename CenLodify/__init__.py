@@ -2,7 +2,7 @@ bl_info = {
     "name": "CenLodify",
     "author": "Lrodas",
     "version": (1, 0, 0),
-    "blender": (3, 0, 0),
+    "blender": (4, 0, 0),
     "location": "3D Viewport > Sidebar (N) > CenLodify",
     "description": "Convert -Parts collections to -V with LODs, or update existing -V",
     "category": "Object",
@@ -35,6 +35,9 @@ def ApplyModsOnObject(obj):
     obj.select_set(False)
     bpy.context.view_layer.objects.active = None
 
+
+
+
 def JoinObjectsTogether(objects):
     bpy.ops.object.select_all(action='DESELECT')
     for o in objects:
@@ -42,6 +45,10 @@ def JoinObjectsTogether(objects):
     bpy.context.view_layer.objects.active = objects[0]
     bpy.ops.object.join()
     return bpy.context.view_layer.objects.active
+
+
+
+
 
 def SetOriginToWorldOrigin(targetObject):
     if bpy.context.mode != 'OBJECT':
@@ -56,12 +63,20 @@ def SetOriginToWorldOrigin(targetObject):
     targetObject.select_set(False)
     bpy.context.view_layer.objects.active = None
 
+
+
+
+
 def ApplyScaleAndRotation(targetObject):
     bpy.context.view_layer.objects.active = targetObject
     targetObject.select_set(True)
+
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+
     targetObject.select_set(False)
     bpy.context.view_layer.objects.active = None
+
+
 
 def LinkIntoSameCollection(victim, invader):
     for col in victim.users_collection:
@@ -78,7 +93,9 @@ def CreateLod1Object(lod0Object):
     lod1.name = lod0Object.name.removesuffix("_LOD0") + "_LOD1"
     return lod1
 
-# ---------- core ops ----------
+
+
+
 
 def ConvertPartCollectionToLodCollection():
     partsCollection = bpy.context.view_layer.active_layer_collection.collection
@@ -90,6 +107,12 @@ def ConvertPartCollectionToLodCollection():
 
     # New collection name: "XXX-Parts" -> "XXX-V"
     lodCollectionName = partsCollection.name.removesuffix("-Parts") + "-V"
+
+    # if the lodcollection already existed, create a new collection instead, to prevent overwriting the old on accident
+    existingLodCollection = bpy.data.collections.get(lodCollectionName)
+    if existingLodCollection:
+        lodCollectionName = lodCollectionName.removesuffix("-V") + "_NEW_FROM_PARTS-V"
+
     lodCollection = bpy.data.collections.new(lodCollectionName)
     bpy.context.scene.collection.children.link(lodCollection)
 
@@ -124,6 +147,9 @@ def ConvertPartCollectionToLodCollection():
 
     return {'FINISHED'}
 
+
+
+
 def UpdateLods():
     lodCollection = bpy.context.view_layer.active_layer_collection.collection
     if not lodCollection.name.endswith("-V"):
@@ -157,6 +183,9 @@ def UpdateLods():
     lod0.hide_set(True)
     return {'FINISHED'}
 
+
+
+
 # ---------- UI ----------
 
 class CENLODIFY_OT_process(bpy.types.Operator):
@@ -179,6 +208,9 @@ class CENLODIFY_OT_process(bpy.types.Operator):
             popup_error('Active collection must end with "-Parts" or "-V".')
             return {'CANCELLED'}
 
+
+
+
 class CENLODIFY_PT_panel(bpy.types.Panel):
     bl_label = "CenLodify"
     bl_idname = "CENLODIFY_PT_panel"
@@ -191,6 +223,9 @@ class CENLODIFY_PT_panel(bpy.types.Panel):
         col = context.view_layer.active_layer_collection.collection if context.view_layer.active_layer_collection else None
         layout.label(text=f'Active: {col.name if col else "<none>"}')
         layout.operator("cenlodify.process", icon='MOD_DECIM')
+
+
+
 
 # ---------- register ----------
 
