@@ -4,7 +4,7 @@ bl_info = {
     "version": (1, 0, 0),
     "blender": (4, 0, 0),
     "location": "3D Viewport > Sidebar (N) > CenLodify",
-    "description": "Convert -Parts collections to -V with LODs, or update existing -V",
+    "description": "Convert -Parts collections to -CenLods, or update existing -CenLods",
     "category": "Object",
 }
 
@@ -106,12 +106,12 @@ def ConvertPartCollectionToLodCollection():
     bpy.ops.object.select_all(action='DESELECT')
 
     # New collection name: "XXX-Parts" -> "XXX-V"
-    lodCollectionName = partsCollection.name.removesuffix("-Parts") + "-V"
+    lodCollectionName = partsCollection.name.removesuffix("-Parts") + "-CenLods"
 
     # if the lodcollection already existed, create a new collection instead, to prevent overwriting the old on accident
     existingLodCollection = bpy.data.collections.get(lodCollectionName)
     if existingLodCollection:
-        lodCollectionName = lodCollectionName.removesuffix("-V") + "_NEW_FROM_PARTS-V"
+        lodCollectionName = lodCollectionName.removesuffix("-CenLods") + "_NEW_FROM_PARTS-CenLods"
 
     lodCollection = bpy.data.collections.new(lodCollectionName)
     bpy.context.scene.collection.children.link(lodCollection)
@@ -133,7 +133,7 @@ def ConvertPartCollectionToLodCollection():
     SetOriginToWorldOrigin(joined)
     ApplyScaleAndRotation(joined)
 
-    joined.name = lodCollectionName + "_LOD0"
+    joined.name = lodCollectionName.removesuffix("-CenLods") + "_LOD0"
     lod0 = joined
     lod1 = CreateLod1Object(lod0)
 
@@ -150,10 +150,12 @@ def ConvertPartCollectionToLodCollection():
 
 
 
+
+
 def UpdateLods():
     lodCollection = bpy.context.view_layer.active_layer_collection.collection
-    if not lodCollection.name.endswith("-V"):
-        popup_error(f'The selected collection "{lodCollection.name}" does not end with "-V"')
+    if not lodCollection.name.endswith("-CenLods"):
+        popup_error(f'The selected collection "{lodCollection.name}" does not end with "-CenLods"')
         return {'CANCELLED'}
 
     lod1 = next((o for o in lodCollection.objects if o.name.endswith("_LOD1")), None)
@@ -202,10 +204,10 @@ class CENLODIFY_OT_process(bpy.types.Operator):
 
         if name.endswith("-Parts"):
             return ConvertPartCollectionToLodCollection()
-        elif name.endswith("-V"):
+        elif name.endswith("-CenLods"):
             return UpdateLods()
         else:
-            popup_error('Active collection must end with "-Parts" or "-V".')
+            popup_error('Active collection must end with "-Parts" or "-CenLods".')
             return {'CANCELLED'}
 
 
