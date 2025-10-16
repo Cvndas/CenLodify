@@ -9,6 +9,9 @@ bl_info = {
 }
 
 import bpy
+import os
+from bpy.props import StringProperty, PointerProperty, BoolProperty
+from bpy.types import PropertyGroup
 
 # ---------- helpers ----------
 
@@ -200,12 +203,79 @@ def UpdateLods():
     return {"FINISHED"}
 
 
+def ExportCenLodCollection(pathString):
+    targetCollection = bpy.context.view_layer.active_layer_collection.collection
+
+    absolutePath = bpy.path.abspath(pathString) if pathString else ""
+    if not absolutePath:
+        popup_error("Forgot to set export directory.")
+        return {"CANCELLED"}
+    os.makedirs(absolutePath, exist_ok=True)
+
+    seen = set()
+    objs = [
+        o for o in _iter_objects_recursive(targetCollection, seen) if o.type == "MESH"
+    ]
+    if not objs:
+        popup_error(
+            "Collection " + targetCollection.name + " did not have any mesh objects."
+        )
+        return {"CANCELLED"}
+
+    previousActiveObject = bpy.context.view_layer.objects.active
+    for obj in objs:
+        bpy.ops.object.select_all(action="DESELECT")
+        if bpy.context.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+
+        filename = obj.name
+        filepath = os.path.join(absolutePath, f"{filename}.fbx")
+
+        bpy.ops.export_scene.fbx(
+            filepath=filepath,
+            use_selection=True,
+            object_types={"MESH"},
+            use_triangles=True,
+            axis_forward="Y",
+            axis_up="Z",
+            apply_scale_options="FBX_SCALE_ALL",
+            mesh_smooth_type="FACE",
+            use_mesh_modifiers=True,
+            add_leaf_bones=False,
+            bake_anim=False,
+            path_mode="AUTO",
+        )
+
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = previousActiveObject
+    # previousActiveObject.select_set(True)
+
+    return {"FINISHED"}
+
+
 # ---------- UI ----------
+class CENLODIFY_OT_CenExport(bpy.types.Operator):
+    bl_idname = "cenlodify.export"
+    bl_label = "Export CenLods"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        targetCollection = context.view_layer.active_layer_collection.collection
+        if not targetCollection or not targetCollection.name.endswith("-CenLods"):
+            popup_error(
+                f'Active collection must end with "-CenLods" (got "{targetCollection.name if targetCollection else "<none>"}").'
+            )
+            return {"CANCELLED"}
+        pathString = context.scene.cenlodify.export_path
+        return ExportCenLodCollection(pathString)
 
 
 class CENLODIFY_OT_process(bpy.types.Operator):
     bl_idname = "cenlodify.process"
-    bl_label = "Convert/Update LODs"
+    bl_label = "Convert / Update LODs"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -224,6 +294,31 @@ class CENLODIFY_OT_process(bpy.types.Operator):
             return {"CANCELLED"}
 
 
+class CENLODIFY_PG_settings(PropertyGroup):
+    export_path: StringProperty(
+        name="Export Path",
+        description="The export path",
+        default="",
+        subtype="DIR_PATH",
+    )
+
+
+class CENLODIFY_OT_ChooseExportPath(bpy.types.Operator):
+    bl_idname = "cenlodify.pick_path"
+    bl_label = "Choose export path"
+    bl_options = {"REGISTER", "UNDO"}
+
+    directorypath: StringProperty(subtype="DIR_PATH")
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        context.scene.cenlodify.export_path = self.directorypath
+        return {"FINISHED"}
+
+
 class CENLODIFY_PT_panel(bpy.types.Panel):
     bl_label = "CenLodify"
     bl_idname = "CENLODIFY_PT_panel"
@@ -239,20 +334,34 @@ class CENLODIFY_PT_panel(bpy.types.Panel):
             else None
         )
         layout.label(text=f"Active: {col.name if col else '<none>'}")
+
+        row = layout.row(align=True)
+        row.prop(context.scene.cenlodify, "export_path", text="")
+        # row.operator("cenlodify.pick_path", text="", icon="FILE_FOLDER")
+
         layout.operator("cenlodify.process", icon="MOD_DECIM")
+        layout.operator("cenlodify.export", icon="EXPORT")
 
 
 # ---------- register ----------
 
-classes = (CENLODIFY_OT_process, CENLODIFY_PT_panel)
+classes = (
+    CENLODIFY_PG_settings,
+    CENLODIFY_OT_process,
+    CENLODIFY_OT_CenExport,
+    CENLODIFY_OT_ChooseExportPath,
+    CENLODIFY_PT_panel,
+)
 
 
 def register():
     for c in classes:
         bpy.utils.register_class(c)
+    bpy.types.Scene.cenlodify = PointerProperty(type=CENLODIFY_PG_settings)
 
 
 def unregister():
+    del bpy.types.Scene.cenlodify
     for c in reversed(classes):
         bpy.utils.unregister_class(c)
 
