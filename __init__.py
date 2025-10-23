@@ -288,12 +288,12 @@ class CENLODIFY_OT_CenExport(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        targetCollection = context.view_layer.active_layer_collection.collection
-        if not targetCollection or not targetCollection.name.endswith("-CenLods"):
-            popup_error(
-                f'Active collection must end with "-CenLods" (got "{targetCollection.name if targetCollection else "<none>"}").'
-            )
-            return {"CANCELLED"}
+        # targetCollection = context.view_layer.active_layer_collection.collection
+        # if not targetCollection or not targetCollection.name.endswith("-CenLods"):
+        #     popup_error(
+        #         f'Active collection must end with "-CenLods" (got "{targetCollection.name if targetCollection else "<none>"}").'
+        #     )
+        #     return {"CANCELLED"}
         pathString = context.scene.cenlodify.export_path
         return ExportCenLodCollection(pathString)
 
